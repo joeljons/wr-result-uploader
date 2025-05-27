@@ -69,10 +69,19 @@ public class WRResultUploader {
         out.println("<html>");
         out.println("<head>");
         out.println("<meta charset=\"utf-8\" /> ");
+        out.println("<style>");
+        out.println("@media print {");
+        out.println("    .excludePrint { display: none; }");
+        out.println("    h2 { page-break-before: always; break-before: page; }");
+        out.println("    h2:first-of-type { page-break-before: avoid; break-before: avoid; }");
+        out.println("}");
+        out.println("</style>");
+
         out.println("</head>");
         out.println("<body>");
         out.println("<h1>Södertälje 2025-05-24</h1>");
-        out.println("<button onClick='location.href=\"?a=\"+Math.random()'>Ladda om</button>");
+        out.println("<p class='excludePrint'>Preliminära resultat<br>");
+        out.println("<button onClick='location.href=\"?a=\"+Math.random()'>Ladda om</button></p>");
         Workbook hanarWorkbook = WorkbookFactory.create(new FileInputStream(hanFil));
         Workbook tikarWorkbook = WorkbookFactory.create(new FileInputStream(tikFil));
 
