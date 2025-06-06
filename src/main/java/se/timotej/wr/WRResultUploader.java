@@ -1,7 +1,5 @@
 package se.timotej.wr;
 
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.SftpException;
 import org.apache.poi.ss.usermodel.*;
 
 import java.io.File;
@@ -13,14 +11,16 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 
 public class WRResultUploader {
+    private static final String RESULT_HTML = "result.html";
     private final String hanFil;
     private final String tikFil;
-    FileTime hanModifiedTime;
-    FileTime tikModifiedTime;
+    private FileTime hanModifiedTime;
+    private FileTime tikModifiedTime;
+    private volatile boolean canceled = false;
 
-    public static void main(String[] args) throws IOException, JSchException, SftpException {
-        if(args.length<3) {
-            System.out.println("Usage: -DftpPassword=<password> WRResultUploader <hanfil> <tikfil> <monitor true/false>");
+    public static void main(String[] args) throws IOException {
+        if (args.length < 3) {
+            System.out.println("Usage: WRResultUploader <hanfil> <tikfil> <monitor true/false>");
             System.exit(1);
         }
         String hanFil = args[0];
@@ -29,17 +29,20 @@ public class WRResultUploader {
         WRResultUploader wrResultUploader = new WRResultUploader(hanFil, tikFil);
         wrResultUploader.run();
         if (monitor) {
-            wrResultUploader.monitor();
+            wrResultUploader.monitor(null);
         }
         System.exit(0);
     }
 
-    private void monitor() throws JSchException, SftpException, IOException {
+    public void monitor(Runnable resultUploadedCallback) throws IOException {
         while (true) {
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
+            }
+            if (canceled) {
+                return;
             }
             if (!hanModifiedTime.equals(Files.getLastModifiedTime(Path.of(hanFil)))
                     || !tikModifiedTime.equals(Files.getLastModifiedTime(Path.of(tikFil)))) {
@@ -49,6 +52,9 @@ public class WRResultUploader {
                     throw new RuntimeException(e);
                 }
                 run();
+                if (resultUploadedCallback != null) {
+                    resultUploadedCallback.run();
+                }
             }
         }
     }
@@ -58,30 +64,29 @@ public class WRResultUploader {
         this.tikFil = tikFil;
     }
 
-    private void run() throws IOException, JSchException, SftpException {
+    public void run() throws IOException {
         System.out.println("WRResultUploader.run");
         hanModifiedTime = Files.getLastModifiedTime(Path.of(hanFil));
         tikModifiedTime = Files.getLastModifiedTime(Path.of(tikFil));
-//        System.out.println("hanModifiedTime = " + hanModifiedTime);
-//        System.out.println("tikModifiedTime = " + tikModifiedTime);
 
-        PrintStream out = new PrintStream("index.html");
+        PrintStream out = new PrintStream(RESULT_HTML);
         out.println("<html>");
         out.println("<head>");
-        out.println("<meta charset=\"utf-8\" /> ");
-        out.println("<style>");
-        out.println("@media print {");
-        out.println("    .excludePrint { display: none; }");
-        out.println("    h2 { page-break-before: always; break-before: page; }");
-        out.println("    h2:first-of-type { page-break-before: avoid; break-before: avoid; }");
-        out.println("}");
+        out.println("<meta charset=\"utf-8\" />");
+        out.println("<link rel=\"stylesheet\" href=\"style.css\">");
+        out.println("<script>");
+        out.println("    function reload() {");
+        out.println("        const url = new URL(window.location);");
+        out.println("        url.searchParams.set('a', Math.random());");
+        out.println("        location.href = url.toString();");
+        out.println("    }");
+        out.println("</script>");
         out.println("</style>");
-
         out.println("</head>");
         out.println("<body>");
-        out.println("<h1>Södertälje 2025-05-24</h1>");
+        out.println("<h1>Kalmar 2025-06-07</h1>");
         out.println("<p class='excludePrint'>Preliminära resultat<br>");
-        out.println("<button onClick='location.href=\"?a=\"+Math.random()'>Ladda om</button></p>");
+        out.println("<button onClick=\"reload()\">Ladda om</button></p>");
         Workbook hanarWorkbook = WorkbookFactory.create(new FileInputStream(hanFil));
         Workbook tikarWorkbook = WorkbookFactory.create(new FileInputStream(tikFil));
 
@@ -109,8 +114,8 @@ public class WRResultUploader {
         System.out.println("done");
     }
 
-    private void upload() throws JSchException, SftpException {
-        new FileUploader().upload(new File("index.html"));
+    private void upload() throws IOException {
+        new FileUploader().upload(new File(RESULT_HTML));
     }
 
     private static void printSheet(Sheet sheet, PrintStream out) {
@@ -168,10 +173,15 @@ public class WRResultUploader {
             return "";
         } else if (cell.getCellType() == CellType.FORMULA && cell.getCachedFormulaResultType() == CellType.STRING) {
             return cell.getRichStringCellValue().toString();
+        } else if (cell.getCellType() == CellType.FORMULA && cell.getCachedFormulaResultType() == CellType.ERROR) {
+            return "";
         } else {
             DataFormatter dataFormatter = new DataFormatter();
             return dataFormatter.formatCellValue(cell);
         }
     }
 
+    public void stop() {
+        canceled = true;
+    }
 }

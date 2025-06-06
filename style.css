@@ -1,0 +1,5 @@
+@media print {
+    .excludePrint { display: none; }
+    h2 { page-break-before: always; break-before: page; }
+    h2:first-of-type { page-break-before: avoid; break-before: avoid; }
+}

@@ -1,27 +1,28 @@
 package se.timotej.wr;
 
-import com.jcraft.jsch.*;
-
 import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 public class FileUploader {
-    public void upload(File file) throws JSchException, SftpException {
-        ChannelSftp channelSftp = setupJsch();
-        channelSftp.connect();
-
-        String remoteDir = "wr/live/";
-
-        channelSftp.put(file.getAbsolutePath(), remoteDir + file.getName());
-
-        channelSftp.exit();
-    }
-
-    private ChannelSftp setupJsch() throws JSchException {
-        JSch jsch = new JSch();
-        jsch.setKnownHosts(System.getProperty("user.home")+"/.ssh/known_hosts");
-        Session jschSession = jsch.getSession("timotej.se", "ssh.timotej.se");
-        jschSession.setPassword(System.getProperty("ftpPassword"));
-        jschSession.connect();
-        return (ChannelSftp) jschSession.openChannel("sftp");
+    public void upload(File file) throws IOException {
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://timotej.se/wr/live/upload.php"))
+                    .header("X-Version", "1.1.0")
+                    .header("Content-Type", "text/html")
+                    .POST(HttpRequest.BodyPublishers.ofFile(file.toPath()))
+                    .build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new IOException("Upload failed with status code: " + response.statusCode() + "\n" + response.body());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Upload interrupted", e);
+        }
     }
 }
