@@ -5,7 +5,6 @@ import javax.swing.text.DefaultCaret;
 import java.awt.*;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.reflect.InvocationTargetException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.prefs.Preferences;
@@ -28,7 +27,7 @@ public class GUI {
     private JButton pauseButton;
     private JTextArea log;
     private JScrollPane logScrollPane;
-    private WRResultUploader wrResultUploader;
+    private WRResultGenerator wrResultGenerator;
 
     public void showGui() {
         // Create and set up the window
@@ -45,7 +44,7 @@ public class GUI {
         LocalDate currentDate = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         datum.setText(currentDate.format(formatter));
-        //datum.setText("2099-12-31");
+        datum.setText("2099-12-31");
 
         hanFil = new JTextField(60);
         hanFil.setText(prefs.get(PREF_HAN_FILE, ""));
@@ -67,7 +66,7 @@ public class GUI {
             startButton.setEnabled(false);
             pauseButton.setEnabled(true);
             try {
-                WRResultUploader wrResultUploader = new WRResultUploader(hanFil.getText(), tikFil.getText(), (String)sektion.getSelectedItem(), datum.getText());
+                WRResultGenerator wrResultGenerator = new WRResultGenerator(hanFil.getText(), tikFil.getText(), (String)sektion.getSelectedItem(), datum.getText());
                 if (monitorCheckBox.isSelected()) {
                     setLog("Kör en första gång...");
                 } else {
@@ -75,10 +74,10 @@ public class GUI {
                 }
                 new Thread(() -> {
                     try {
-                        wrResultUploader.run();
+                        wrResultGenerator.run();
                         if (monitorCheckBox.isSelected()) {
                             SwingUtilities.invokeAndWait(() -> addLog("Bevakar filerna för uppdateringar (spara excel-filen för att köra igen automatiskt)..."));
-                            wrResultUploader.monitor(() -> SwingUtilities.invokeLater(() -> addLog("Laddat upp uppdaterade resultat")));
+                            wrResultGenerator.monitor(() -> SwingUtilities.invokeLater(() -> addLog("Laddat upp uppdaterade resultat")));
                         } else {
                             SwingUtilities.invokeAndWait(() -> {
                                 addLog("Färdig");
@@ -106,10 +105,10 @@ public class GUI {
         pauseButton.addActionListener(e -> {
             startButton.setEnabled(true);
             pauseButton.setEnabled(false);
-            if (wrResultUploader != null) {
-                wrResultUploader.stop();
+            if (wrResultGenerator != null) {
+                wrResultGenerator.stop();
             }
-            wrResultUploader = null;
+            wrResultGenerator = null;
         });
         fileChooser = new JFileChooser(".");
         log = new JTextArea(10, 20);

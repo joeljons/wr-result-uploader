@@ -8,7 +8,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 public class FileUploader {
-    public void upload(File file, String sektion, String datum) throws IOException {
+    public enum UploadType {
+        HTML, JSON
+    }
+    public void upload(File file, String sektion, String datum, UploadType uploadType) throws IOException {
         if (datum.compareTo("2025-06-07") <= 0) {
             throw new RuntimeException("Rör inte äldre resultat");
         }
@@ -19,6 +22,7 @@ public class FileUploader {
                     .header("Content-Type", "text/html")
                     .header("X-Sektion", sektion)
                     .header("X-Datum", datum)
+                    .header("X-Type", uploadType.name())
                     .POST(HttpRequest.BodyPublishers.ofFile(file.toPath()))
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
