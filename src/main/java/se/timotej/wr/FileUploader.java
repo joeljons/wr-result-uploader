@@ -9,6 +9,9 @@ import java.net.http.HttpResponse;
 
 public class FileUploader {
     public void upload(File file, String sektion, String datum) throws IOException {
+        if (datum.compareTo("2025-06-07") <= 0) {
+            throw new RuntimeException("Rör inte äldre resultat");
+        }
         try (HttpClient client = HttpClient.newHttpClient()) {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("http://timotej.se/wr/live/upload.php"))
