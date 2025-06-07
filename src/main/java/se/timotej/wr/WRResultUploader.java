@@ -1,5 +1,6 @@
 package se.timotej.wr;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 
 import java.io.File;
@@ -14,6 +15,8 @@ public class WRResultUploader {
     private static final String RESULT_HTML = "result.html";
     private final String hanFil;
     private final String tikFil;
+    private final String sektion;
+    private final String datum;
     private FileTime hanModifiedTime;
     private FileTime tikModifiedTime;
     private volatile boolean canceled = false;
@@ -26,7 +29,7 @@ public class WRResultUploader {
         String hanFil = args[0];
         String tikFil = args[1];
         boolean monitor = Boolean.parseBoolean(args[2]);
-        WRResultUploader wrResultUploader = new WRResultUploader(hanFil, tikFil);
+        WRResultUploader wrResultUploader = new WRResultUploader(hanFil, tikFil, "Test", "2099-12-31");
         wrResultUploader.run();
         if (monitor) {
             wrResultUploader.monitor(null);
@@ -47,7 +50,7 @@ public class WRResultUploader {
             if (!hanModifiedTime.equals(Files.getLastModifiedTime(Path.of(hanFil)))
                     || !tikModifiedTime.equals(Files.getLastModifiedTime(Path.of(tikFil)))) {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(3000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -59,9 +62,11 @@ public class WRResultUploader {
         }
     }
 
-    public WRResultUploader(String hanFil, String tikFil) {
+    public WRResultUploader(String hanFil, String tikFil, String sektion, String datum) {
         this.hanFil = hanFil;
         this.tikFil = tikFil;
+        this.sektion = sektion;
+        this.datum = datum;
     }
 
     public void run() throws IOException {
@@ -81,10 +86,9 @@ public class WRResultUploader {
         out.println("        location.href = url.toString();");
         out.println("    }");
         out.println("</script>");
-        out.println("</style>");
         out.println("</head>");
         out.println("<body>");
-        out.println("<h1>Kalmar 2025-06-07</h1>");
+        out.printf("<h1>%s %s</h1>%n", sektion, datum);
         out.println("<p class='excludePrint'>Preliminära resultat<br>");
         out.println("<button onClick=\"reload()\">Ladda om</button></p>");
         Workbook hanarWorkbook = WorkbookFactory.create(new FileInputStream(hanFil));
@@ -115,10 +119,11 @@ public class WRResultUploader {
     }
 
     private void upload() throws IOException {
-        new FileUploader().upload(new File(RESULT_HTML));
+        new FileUploader().upload(new File(RESULT_HTML), sektion, datum);
     }
 
     private static void printSheet(Sheet sheet, PrintStream out) {
+        boolean inTable = false;
         for (Row row : sheet) {
             if (row.getZeroHeight()) {
                 continue;
@@ -130,22 +135,34 @@ public class WRResultUploader {
                 continue;
             } else if (firstCellValue.equals("R")) {
                 out.println("<table border=1>");
+                inTable = true;
             }
-            out.println("<tr>");
-            for (Cell cell : row) {
-                String css = "";
-                if (isStrikethrough(cell)) {
-                    css = "style=\"text-decoration: line-through;\"";
-                } else if (isUnderline(cell)) {
-                    css = "style=\"text-decoration: underline; font-style:italic\"";
+            if(inTable) {
+                out.println("<tr>");
+                int lastCellNumWithContent = -1;
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    Cell cell = row.getCell(c);
+                    if (StringUtils.isNotBlank(getCellValue(cell))) {
+                        lastCellNumWithContent = c;
+                    }
                 }
-                out.printf("<td %s>%s</td>", css, getCellValue(cell));
-            }
-            out.println("</tr>");
-            if (firstCellValue.equals("S")) {
-                out.println("</table><br>");
-            }
+                for (int c = 0; c <= lastCellNumWithContent; c++) {
+                    Cell cell = row.getCell(c);
+                    String css = "";
+                    if (isStrikethrough(cell)) {
+                        css = "style=\"text-decoration: line-through;\"";
+                    } else if (isUnderline(cell)) {
+                        css = "style=\"text-decoration: underline; font-style:italic\"";
+                    }
+                    out.printf("<td %s>%s</td>", css, getCellValue(cell));
+                }
+                out.println("</tr>");
 
+                if (firstCellValue.equals("S")) {
+                    out.println("</table><br>");
+                    inTable = false;
+                }
+            }
         }
     }
 

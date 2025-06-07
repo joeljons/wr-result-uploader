@@ -1,53 +1,93 @@
 package se.timotej.wr;
 
 import javax.swing.*;
+import javax.swing.text.DefaultCaret;
 import java.awt.*;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.util.prefs.Preferences;
 
 public class GUI {
+    private static final String PREF_HAN_FILE = "hanFilePath";
+    private static final String PREF_TIK_FILE = "tikFilePath";
+    private static final String PREF_MONITOR = "monitor";
+    private static final String PREF_SEKTION = "sektion";
+    private final Preferences prefs = Preferences.userNodeForPackage(GUI.class);
+
     private JFrame frame;
     private JFileChooser fileChooser;
+    private JComboBox<String> sektion;
+    private JTextField datum;
     private JTextField hanFil;
     private JTextField tikFil;
+    private JCheckBox monitorCheckBox;
     private JButton startButton;
     private JButton pauseButton;
     private JTextArea log;
+    private JScrollPane logScrollPane;
     private WRResultUploader wrResultUploader;
 
     public void showGui() {
         // Create and set up the window
-        frame = new JFrame("Whippet Race Live-resultat 1.1.0");
+        frame = new JFrame("Whippet Race Live-resultat 1.2.0");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
 
         // Create components
-        hanFil = new JTextField(30);
-//        hanFil.setText("/Users/joel/Library/CloudStorage/Dropbox/Whippet Race/WRResultUploader/WR250607_hanar.xlsx");
-        tikFil = new JTextField(30);
-//        tikFil.setText("/Users/joel/Library/CloudStorage/Dropbox/Whippet Race/WRResultUploader/WR250607_tikar.xlsx");
-        JButton browse1 = new JButton("Browse...");
-        JButton browse2 = new JButton("Browse...");
+        sektion = new JComboBox<>(new String[]{"Kalmar", "Karlstad", "Halmstad", "Norrköping", "Södertälje", "Västerås", "Test"});
+        sektion.setSelectedItem(prefs.get(PREF_SEKTION, ""));
+        sektion.addActionListener(e -> prefs.put(PREF_SEKTION, (String) sektion.getSelectedItem()));
+        datum = new JTextField(10);
+        LocalDate currentDate = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        datum.setText(currentDate.format(formatter));
+        //datum.setText("2099-12-31");
+
+        hanFil = new JTextField(60);
+        hanFil.setText(prefs.get(PREF_HAN_FILE, ""));
+        tikFil = new JTextField(60);
+        tikFil.setText(prefs.get(PREF_TIK_FILE, ""));
+        JButton browseHanar = new JButton("Browse...");
+        JButton browseTikar = new JButton("Browse...");
+        monitorCheckBox = new JCheckBox("Kör automatiskt");
+        monitorCheckBox.setSelected(prefs.getBoolean(PREF_MONITOR, false));
+        monitorCheckBox.addActionListener(e -> prefs.putBoolean(PREF_MONITOR, monitorCheckBox.isSelected()));
         startButton = new JButton("Starta");
         startButton.addActionListener(e -> {
+            if (!datum.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                setLog("Felaktigt datumformat. Önskat format: åååå-mm-dd");
+                return;
+            }
             startButton.setEnabled(false);
             pauseButton.setEnabled(true);
             try {
-                WRResultUploader wrResultUploader = new WRResultUploader(hanFil.getText(), tikFil.getText());
-                log.setText("Kör en första gång...\n");
+                WRResultUploader wrResultUploader = new WRResultUploader(hanFil.getText(), tikFil.getText(), (String)sektion.getSelectedItem(), datum.getText());
+                if (monitorCheckBox.isSelected()) {
+                    setLog("Kör en första gång...");
+                } else {
+                    setLog("Kör en gång...");
+                }
                 new Thread(() -> {
                     try {
                         wrResultUploader.run();
-                        SwingUtilities.invokeAndWait(() -> log.append("Bevakar filerna för uppdateringar (spara excel-filen för att köra igen automatiskt)...\n"));
-                        wrResultUploader.monitor(() -> {
-                            SwingUtilities.invokeLater(() -> log.append("Laddat upp uppdaterade resultat\n"));
-                        });
+                        if (monitorCheckBox.isSelected()) {
+                            SwingUtilities.invokeAndWait(() -> addLog("Bevakar filerna för uppdateringar (spara excel-filen för att köra igen automatiskt)..."));
+                            wrResultUploader.monitor(() -> SwingUtilities.invokeLater(() -> addLog("Laddat upp uppdaterade resultat")));
+                        } else {
+                            SwingUtilities.invokeAndWait(() -> {
+                                addLog("Färdig");
+                                pauseButton.doClick();
+                            });
+                        }
                     } catch (Exception ex) {
                         StringWriter out = new StringWriter();
                         ex.printStackTrace(new PrintWriter(out));
                         SwingUtilities.invokeLater(() -> {
-                            log.append(out.toString());
+                            addLog(out.toString());
                             pauseButton.doClick();
                         });
                     }
@@ -55,7 +95,7 @@ public class GUI {
             } catch (Exception ex) {
                 StringWriter out = new StringWriter();
                 ex.printStackTrace(new PrintWriter(out));
-                log.append(out.toString());
+                addLog(out.toString());
                 pauseButton.doClick();
             }
         });
@@ -70,15 +110,28 @@ public class GUI {
             wrResultUploader = null;
         });
         fileChooser = new JFileChooser(".");
-        log = new JTextArea(5, 20);
+        log = new JTextArea(10, 20);
+        DefaultCaret caret = (DefaultCaret)log.getCaret();
+        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
         // Layout components
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // First file chooser row
         gbc.gridx = 0;
         gbc.gridy = 0;
+        gbc.gridwidth = 3;
+        JPanel sektionDatePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        sektionDatePanel.add(new JLabel("Sektion: "));
+        sektionDatePanel.add(sektion);
+        sektionDatePanel.add(new JLabel("Datum: "));
+        sektionDatePanel.add(datum);
+        frame.add(sektionDatePanel, gbc);
+
+        // First file chooser row
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
         frame.add(new JLabel("Excel-fil hanar:"), gbc);
 
         gbc.gridx = 1;
@@ -87,11 +140,11 @@ public class GUI {
 
         gbc.gridx = 2;
         gbc.weightx = 0.0;
-        frame.add(browse1, gbc);
+        frame.add(browseHanar, gbc);
 
         // Second file chooser row
         gbc.gridx = 0;
-        gbc.gridy = 1;
+        gbc.gridy = 2;
         frame.add(new JLabel("Excel-fil tikar:"), gbc);
 
         gbc.gridx = 1;
@@ -100,44 +153,64 @@ public class GUI {
 
         gbc.gridx = 2;
         gbc.weightx = 0.0;
-        frame.add(browse2, gbc);
+        frame.add(browseTikar, gbc);
 
         // Buttons row
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.add(monitorCheckBox);
         buttonPanel.add(startButton);
         buttonPanel.add(pauseButton);
 
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = 3;
         gbc.gridwidth = 3;
         frame.add(buttonPanel, gbc);
 
         gbc.gridx = 0;
-        gbc.gridy = 3;
+        gbc.gridy = 4;
         gbc.gridwidth = 3;
-        ScrollPane scrollPane = new ScrollPane();
-        scrollPane.add(log);
-        frame.add(scrollPane, gbc);
-
+        logScrollPane = new JScrollPane(log);
+        frame.add(logScrollPane, gbc);
 
         // Add action listeners
-        browse1.addActionListener(e -> {
-            int result = fileChooser.showOpenDialog(frame);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                hanFil.setText(fileChooser.getSelectedFile().getAbsolutePath());
-            }
-        });
-
-        browse2.addActionListener(e -> {
-            int result = fileChooser.showOpenDialog(frame);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                tikFil.setText(fileChooser.getSelectedFile().getAbsolutePath());
-            }
-        });
+        addBrowseActionListener(browseHanar, hanFil, PREF_HAN_FILE);
+        addBrowseActionListener(browseTikar, tikFil, PREF_TIK_FILE);
 
         // Final frame setup
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
+    }
+
+    private void setLog(String str) {
+        log.setText(getTimestamp() + " " + str + "\n");
+        scrollDown();
+    }
+
+    private void addLog(String str) {
+        log.append(getTimestamp() + " " + str + "\n");
+        scrollDown();
+    }
+
+    private void scrollDown() {
+        JScrollBar verticalScrollBar = logScrollPane.getVerticalScrollBar();
+        verticalScrollBar.setValue(logScrollPane.getVerticalScrollBar().getMaximum());
+    }
+
+    private String getTimestamp() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+    }
+
+    private void addBrowseActionListener(JButton browseButton, JTextField textField, String prefPath) {
+        browseButton.addActionListener(e -> {
+            int result = fileChooser.showOpenDialog(frame);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                String path = fileChooser.getSelectedFile().getAbsolutePath();
+                textField.setText(path);
+                textField.setCaretPosition(textField.getText().length());
+                prefs.put(prefPath, path);
+            }
+        });
     }
 }
