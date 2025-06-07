@@ -92,25 +92,36 @@ public class WRResultUploader {
         out.println("<p class='excludePrint'>Preliminära resultat<br>");
         out.println("<button onClick=\"reload()\">Ladda om</button></p>");
         Workbook hanarWorkbook = WorkbookFactory.create(new FileInputStream(hanFil));
-        Workbook tikarWorkbook = WorkbookFactory.create(new FileInputStream(tikFil));
+        if (StringUtils.isNotBlank(tikFil)) {
+            Workbook tikarWorkbook = WorkbookFactory.create(new FileInputStream(tikFil));
+            out.println("<h2>Hanar Försök 1</h2>");
+            printSheet(hanarWorkbook.getSheet("Försök 1"), out);
 
-        out.println("<h2>Hanar Försök 1</h2>");
-        printSheet(hanarWorkbook.getSheet("Försök 1"), out);
+            out.println("<h2>Tikar Försök 1</h2>");
+            printSheet(tikarWorkbook.getSheet("Försök 1"), out);
 
-        out.println("<h2>Tikar Försök 1</h2>");
-        printSheet(tikarWorkbook.getSheet("Försök 1"), out);
+            out.println("<h2>Hanar Försök 2</h2>");
+            printSheet(hanarWorkbook.getSheet("Försök 2"), out);
 
-        out.println("<h2>Hanar Försök 2</h2>");
-        printSheet(hanarWorkbook.getSheet("Försök 2"), out);
+            out.println("<h2>Tikar Försök 2</h2>");
+            printSheet(tikarWorkbook.getSheet("Försök 2"), out);
 
-        out.println("<h2>Tikar Försök 2</h2>");
-        printSheet(tikarWorkbook.getSheet("Försök 2"), out);
+            out.println("<h2>Hanar Final</h2>");
+            printSheet(hanarWorkbook.getSheet("Final"), out);
 
-        out.println("<h2>Hanar Final</h2>");
-        printSheet(hanarWorkbook.getSheet("Final"), out);
+            out.println("<h2>Tikar Final</h2>");
+            printSheet(tikarWorkbook.getSheet("Final"), out);
+        } else {
+            out.println("<h2>Försök 1</h2>");
+            printSheet(hanarWorkbook.getSheet("Försök 1"), out);
 
-        out.println("<h2>Tikar Final</h2>");
-        printSheet(tikarWorkbook.getSheet("Final"), out);
+            out.println("<h2>Försök 2</h2>");
+            printSheet(hanarWorkbook.getSheet("Försök 2"), out);
+
+            out.println("<h2>Final</h2>");
+            printSheet(hanarWorkbook.getSheet("Final"), out);
+        }
+
         out.println("</body>");
         out.println("</html>");
         out.close();
