@@ -106,6 +106,10 @@ public class WRResultUploader {
             out.println("<h2>Tikar Försök 2</h2>");
             printSheet(tikarWorkbook.getSheet("Försök 2"), out);
 
+            printSemiSheeet("Hanar ", hanarWorkbook.getSheet("Semifinal"), out);
+
+            printSemiSheeet("Tikar ", tikarWorkbook.getSheet("Semifinal"), out);
+
             out.println("<h2>Hanar Final</h2>");
             printSheet(hanarWorkbook.getSheet("Final"), out);
 
@@ -117,6 +121,8 @@ public class WRResultUploader {
 
             out.println("<h2>Försök 2</h2>");
             printSheet(hanarWorkbook.getSheet("Försök 2"), out);
+
+            printSemiSheeet("", hanarWorkbook.getSheet("Semifinal"), out);
 
             out.println("<h2>Final</h2>");
             printSheet(hanarWorkbook.getSheet("Final"), out);
@@ -148,24 +154,11 @@ public class WRResultUploader {
                 out.println("<table border=1>");
                 inTable = true;
             }
-            if(inTable) {
+            if (inTable) {
                 out.println("<tr>");
-                int lastCellNumWithContent = -1;
-                for (int c = 0; c < row.getLastCellNum(); c++) {
-                    Cell cell = row.getCell(c);
-                    if (StringUtils.isNotBlank(getCellValue(cell))) {
-                        lastCellNumWithContent = c;
-                    }
-                }
-                for (int c = 0; c <= lastCellNumWithContent; c++) {
-                    Cell cell = row.getCell(c);
-                    String css = "";
-                    if (isStrikethrough(cell)) {
-                        css = "style=\"text-decoration: line-through;\"";
-                    } else if (isUnderline(cell)) {
-                        css = "style=\"text-decoration: underline; font-style:italic\"";
-                    }
-                    out.printf("<td %s>%s</td>", css, getCellValue(cell));
+                int lastCellNumWithContent = getLastCellNumWithContent(row);
+                for (int cellIndex = 0; cellIndex <= lastCellNumWithContent; cellIndex++) {
+                    printCell(out, sheet, row, cellIndex);
                 }
                 out.println("</tr>");
 
@@ -175,6 +168,75 @@ public class WRResultUploader {
                 }
             }
         }
+    }
+
+    private void printSemiSheeet(String kon, Sheet sheet, PrintStream out) {
+        if (sheet == null || semiEmpty(sheet)) {
+            return;
+        }
+
+        out.printf("<h2>%sSemifinal</h2>%n", kon);
+
+        out.println("<table border=1>");
+        for (Row row : sheet) {
+            if (row.getZeroHeight()) {
+                continue;
+            }
+            if (row.getLastCellNum() >= 2) {
+                if (StringUtils.isNotBlank(getCellValue(row.getCell(2))) || StringUtils.isNotBlank(getCellValue(row.getCell(0)))) {
+                    out.println("<tr>");
+                    int lastCellNumWithContent = getLastCellNumWithContent(row);
+                    for (int cellIndex = 0; cellIndex <= lastCellNumWithContent; cellIndex++) {
+                        printCell(out, sheet, row, cellIndex);
+                    }
+                    out.println("</tr>");
+                }
+            }
+        }
+        out.println("</table><br>");
+    }
+
+    private static void printCell(PrintStream out, Sheet sheet, Row row, int cellIndex) {
+        if (sheet.isColumnHidden(cellIndex)) {
+            return;
+        }
+        Cell cell = row.getCell(cellIndex);
+        String css = "";
+        if (isStrikethrough(cell)) {
+            css = "style=\"text-decoration: line-through;\"";
+        } else if (isUnderline(cell)) {
+            css = "style=\"text-decoration: underline; font-style:italic\"";
+        } else if (isBold(cell)) {
+            css = "style=\"font-weight:bold\"";
+        }
+        out.printf("<td %s>%s</td>", css, getCellValue(cell));
+    }
+
+    private static int getLastCellNumWithContent(Row row) {
+        int lastCellNumWithContent = -1;
+        for (int cellIndex = 0; cellIndex < row.getLastCellNum(); cellIndex++) {
+            Cell cell = row.getCell(cellIndex);
+            if (StringUtils.isNotBlank(getCellValue(cell))) {
+                lastCellNumWithContent = cellIndex;
+            }
+        }
+        return lastCellNumWithContent;
+    }
+
+    private boolean semiEmpty(Sheet sheet) {
+        int columnToCheck = sheet.isColumnHidden(1) ? 2 : 1;
+        for (Row row : sheet) {
+            if (row.getZeroHeight()) {
+                continue;
+            }
+            if (row.getLastCellNum() >= columnToCheck) {
+                String cellValue = getCellValue(row.getCell(columnToCheck));
+                if (StringUtils.isNotBlank(cellValue) && !cellValue.startsWith("HEAT")) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static boolean isStrikethrough(Cell cell) {
@@ -195,6 +257,14 @@ public class WRResultUploader {
         return font.getUnderline() != Font.U_NONE;
     }
 
+    private static boolean isBold(Cell cell) {
+        if (cell == null) {
+            return false;
+        }
+        CellStyle cellStyle = cell.getCellStyle();
+        Font font = cell.getSheet().getWorkbook().getFontAt(cellStyle.getFontIndex());
+        return font.getBold();
+    }
 
     private static String getCellValue(Cell cell) {
         if (cell == null) {
