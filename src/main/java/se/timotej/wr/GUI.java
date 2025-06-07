@@ -62,6 +62,8 @@ public class GUI {
                 setLog("Felaktigt datumformat. Önskat format: åååå-mm-dd");
                 return;
             }
+            prefs.put(PREF_HAN_FILE, hanFil.getText());
+            prefs.put(PREF_TIK_FILE, tikFil.getText());
             startButton.setEnabled(false);
             pauseButton.setEnabled(true);
             try {
