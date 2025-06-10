@@ -5,7 +5,8 @@ import javax.swing.text.DefaultCaret;
 import java.awt.*;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.prefs.Preferences;
 
@@ -38,13 +39,22 @@ public class GUI {
 
         // Create components
         sektion = new JComboBox<>(new String[]{"Kalmar", "Karlstad", "Halmstad", "Norrköping", "Södertälje", "Västerås", "Test"});
-        sektion.setSelectedItem(prefs.get(PREF_SEKTION, ""));
-        sektion.addActionListener(e -> prefs.put(PREF_SEKTION, (String) sektion.getSelectedItem()));
+        sektion.addActionListener(e -> {
+            String selectedSektion = (String) sektion.getSelectedItem();
+            if ("Test".equals(selectedSektion)) {
+                datum.setText("2099-12-31");
+                datum.setEnabled(false);
+            } else if (!datum.isEnabled() || datum.getText().isEmpty()) {
+                LocalDate currentDate = LocalDate.now();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                datum.setText(currentDate.format(formatter));
+                datum.setEnabled(true);
+            }
+            prefs.put(PREF_SEKTION, selectedSektion);
+
+        });
         datum = new JTextField(10);
-        LocalDate currentDate = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        datum.setText(currentDate.format(formatter));
-        datum.setText("2099-12-31");
+        sektion.setSelectedItem(prefs.get(PREF_SEKTION, ""));
 
         hanFil = new JTextField(60);
         hanFil.setText(prefs.get(PREF_HAN_FILE, ""));
@@ -66,7 +76,7 @@ public class GUI {
             startButton.setEnabled(false);
             pauseButton.setEnabled(true);
             try {
-                WRResultGenerator wrResultGenerator = new WRResultGenerator(hanFil.getText(), tikFil.getText(), (String)sektion.getSelectedItem(), datum.getText());
+                WRResultGenerator wrResultGenerator = new WRResultGenerator(hanFil.getText(), tikFil.getText(), (String) sektion.getSelectedItem(), datum.getText());
                 if (monitorCheckBox.isSelected()) {
                     setLog("Kör en första gång...");
                 } else {
@@ -112,7 +122,7 @@ public class GUI {
         });
         fileChooser = new JFileChooser(".");
         log = new JTextArea(10, 20);
-        DefaultCaret caret = (DefaultCaret)log.getCaret();
+        DefaultCaret caret = (DefaultCaret) log.getCaret();
         caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
         // Layout components
