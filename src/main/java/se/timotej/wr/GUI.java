@@ -3,8 +3,11 @@ package se.timotej.wr;
 import javax.swing.*;
 import javax.swing.text.DefaultCaret;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -32,7 +35,7 @@ public class GUI {
 
     public void showGui() {
         // Create and set up the window
-        frame = new JFrame("Whippet Race Live-resultat 1.2.0");
+        frame = new JFrame("Whippet Race Live-resultat 1.2.1");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -137,6 +140,22 @@ public class GUI {
         sektionDatePanel.add(sektion);
         sektionDatePanel.add(new JLabel("Datum: "));
         sektionDatePanel.add(datum);
+        String url = "https://timotej.se/wr/live/";
+        JLabel urlLabel = new JLabel("<html><a href=''>" + url + "</a></html>");
+        urlLabel.setForeground(Color.BLUE);
+        urlLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        urlLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+                    Desktop.getDesktop().browse(new URI(url));
+                } catch (Exception ex) {
+                    addLog("Kunde inte öppna URL: " + ex.getMessage());
+                }
+            }
+        });
+        sektionDatePanel.add(urlLabel);
+
         frame.add(sektionDatePanel, gbc);
 
         // First file chooser row

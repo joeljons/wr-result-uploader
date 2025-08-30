@@ -18,7 +18,7 @@ public class FileUploader {
         try (HttpClient client = HttpClient.newHttpClient()) {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("http://timotej.se/wr/live/upload.php"))
-                    .header("X-Version", "1.2.0")
+                    .header("X-Version", "1.2.1")
                     .header("Content-Type", "text/html")
                     .header("X-Sektion", sektion)
                     .header("X-Datum", datum)
