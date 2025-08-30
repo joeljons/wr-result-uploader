@@ -486,7 +486,7 @@ public class WRResultGenerator {
             return "";
         } else if (cell.getCellType() == CellType.NUMERIC) {
             double cellValue = cell.getNumericCellValue();
-            if (cellValue > 4) {
+            if (cellValue > 4 && cellValue < 100) {
                 return String.format("%.2f", cellValue);
             } else {
                 DataFormatter dataFormatter = new DataFormatter();
