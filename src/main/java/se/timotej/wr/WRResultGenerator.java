@@ -184,7 +184,7 @@ public class WRResultGenerator {
             }
             Cell firstCell = row.getCell(0);
             String firstCellValue = getCellValue(firstCell);
-            if (firstCellValue.startsWith("HEAT") || firstCellValue.endsWith("-KLASS")) {
+            if (firstCellValue.startsWith("HEAT") || firstCellValue.endsWith("-KLASS") || firstCellValue.endsWith("-FINAL")) {
                 out.printf("<b>%s</b><br>%n", firstCellValue);
                 if (starter != null) {
                     heats.add(new Heat(heatNr, klass, sponsor, starter));
@@ -199,7 +199,7 @@ public class WRResultGenerator {
                         e.printStackTrace();
                     }
                 }
-                if (firstCellValue.endsWith("-KLASS")) {
+                if (firstCellValue.endsWith("-KLASS") || firstCellValue.endsWith("-FINAL")) {
                     klass = firstCellValue.substring(0, firstCellValue.length() - 6).trim();
                     sponsor = trimToNull(getCellValue(row.getCell(2)));
                 }
