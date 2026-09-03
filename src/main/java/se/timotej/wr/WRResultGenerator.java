@@ -4,10 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
-import se.timotej.wr.model.Heat;
-import se.timotej.wr.model.Omgang;
-import se.timotej.wr.model.Race;
-import se.timotej.wr.model.Start;
+import se.timotej.wr.model.*;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -107,6 +104,7 @@ public class WRResultGenerator {
         out.println("<button onClick=\"reload()\">Ladda om</button></p>");
 
         List<Omgang> omgangar = new ArrayList<>();
+        List<DeltagarLista> deltagarLista = new ArrayList<>();
 
         Workbook hanarWorkbook = WorkbookFactory.create(new FileInputStream(hanFil));
         if (StringUtils.isNotBlank(tikFil)) {
@@ -126,6 +124,15 @@ public class WRResultGenerator {
             printSheet("Hanar", "Final", hanarWorkbook.getSheet("Final"), out, omgangar);
 
             printSheet("Tikar", "Final", tikarWorkbook.getSheet("Final"), out, omgangar);
+
+            List<Deltagare> hanDeltagare = calcDeltagare(hanarWorkbook.getSheet("Anmälda"), omgangar);
+            if (hanDeltagare != null) {
+                deltagarLista.add(new DeltagarLista("Hanar", hanDeltagare));
+            }
+            List<Deltagare> tikDeltagare = calcDeltagare(tikarWorkbook.getSheet("Anmälda"), omgangar);
+            if (tikDeltagare != null) {
+                deltagarLista.add(new DeltagarLista("Tikar", tikDeltagare));
+            }
         } else {
             out.println("<h2>Försök 1</h2>");
             printSheet(null, "Försök 1", hanarWorkbook.getSheet("Försök 1"), out, omgangar);
@@ -137,13 +144,18 @@ public class WRResultGenerator {
 
             out.println("<h2>Final</h2>");
             printSheet(null, "Final", hanarWorkbook.getSheet("Final"), out, omgangar);
+
+            List<Deltagare> allaDeltagare = calcDeltagare(hanarWorkbook.getSheet("Anmälda"), omgangar);
+            if (allaDeltagare != null) {
+                deltagarLista.add(new DeltagarLista("Deltgare", allaDeltagare));
+            }
         }
 
         out.println("</body>");
         out.println("</html>");
         out.close();
 
-        Race race = new Race(sektion, datum, omgangar);
+        Race race = new Race(sektion, datum, omgangar, deltagarLista);
         new ObjectMapper()
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
 //                .writerWithDefaultPrettyPrinter()
@@ -398,6 +410,121 @@ public class WRResultGenerator {
         }
         out.println("</table><br>");
         omgangar.add(new Omgang(kon, "Semifinal", heats));
+    }
+
+    private List<Deltagare> calcDeltagare(Sheet sheet, List<Omgang> omgangar) {
+        if (sheet == null || semiEmpty(sheet)) {
+            return null;
+        }
+
+        List<Deltagare> deltagarLista = new ArrayList<>();
+        Row firstRow = sheet.getRow(0);
+        int nrIndex = -1;
+        int namnIndex = -1;
+        int foddIndex = -1;
+        int konIndex = -1;
+        int agareIndex = -1;
+        int sektionIndex = -1;
+        int uppfodarIndex = -1;
+        int addressIndex = -1;
+        int morIndex = -1;
+        int farIndex = -1;
+        for (int cellIndex = 0; cellIndex < firstRow.getLastCellNum(); cellIndex++) {
+            Cell cell = firstRow.getCell(cellIndex);
+            String cellValue = getCellValue(cell);
+            if (cellValue.equals("Nr")) {
+                nrIndex = cellIndex;
+            } else if (cellValue.equals("Namn")) {
+                namnIndex = cellIndex;
+            } else if (cellValue.equals("Född")) {
+                foddIndex = cellIndex;
+            } else if (cellValue.equals("Kön")) {
+                konIndex = cellIndex;
+            } else if (cellValue.equals("Ägare")) {
+                agareIndex = cellIndex;
+            } else if (cellValue.equals("Ort")) {
+                sektionIndex = cellIndex;
+            } else if (cellValue.equals("Uppfödare")) {
+                uppfodarIndex = cellIndex;
+            } else if (cellValue.equals("Adress")) {
+                addressIndex = cellIndex;
+            } else if (cellValue.equals("Mor")) {
+                morIndex = cellIndex;
+            } else if (cellValue.equals("Far")) {
+                farIndex = cellIndex;
+            }
+        }
+        for (int rowNr = 1; rowNr <= sheet.getLastRowNum(); rowNr++) {
+            Row row = sheet.getRow(rowNr);
+            if (row == null) {
+                continue;
+            }
+
+            Integer licensNr = null;
+            String hundNamn = null;
+            String fodelseDatum = null;
+            String agare = null;
+            String kon = null;
+            String sektion = null;
+            String uppfodare = null;
+            String address = null;
+            String mor = null;
+            String far = null;
+            List<Deltagande> deltagande = new ArrayList<>();
+
+            if (nrIndex != -1) {
+                Cell licensCell = row.getCell(nrIndex);
+                if (licensCell != null && licensCell.getCellType() == CellType.NUMERIC) {
+                    licensNr = (int) licensCell.getNumericCellValue();
+                }
+            }
+            if (namnIndex != -1) {
+                hundNamn = trimToNull(getCellValue(row.getCell(namnIndex)));
+            }
+            if (foddIndex != -1) {
+                fodelseDatum = trimToNull(getCellValue(row.getCell(foddIndex)));
+            }
+            if (konIndex != -1) {
+                kon = trimToNull(getCellValue(row.getCell(konIndex)));
+            }
+            if (agareIndex != -1) {
+                agare = trimToNull(getCellValue(row.getCell(agareIndex)));
+            }
+            if (sektionIndex != -1) {
+                sektion = trimToNull(getCellValue(row.getCell(sektionIndex)));
+            }
+            if (uppfodarIndex != -1) {
+                uppfodare = trimToNull(getCellValue(row.getCell(uppfodarIndex)));
+            }
+            if (addressIndex != -1) {
+                address = trimToNull(getCellValue(row.getCell(addressIndex)));
+            }
+            if (morIndex != -1) {
+                mor = trimToNull(getCellValue(row.getCell(morIndex)));
+            }
+            if (farIndex != -1) {
+                far = trimToNull(getCellValue(row.getCell(farIndex)));
+            }
+
+            if (hundNamn != null) {
+                for (Omgang omgang : omgangar) {
+                    for (Heat heat : omgang.heat()) {
+                        for (Start start : heat.starter()) {
+                            if (hundNamn.equals(start.hundNamn())) {
+                                deltagande.add(new Deltagande(omgang.namn(), heat.nr(), heat.klass(), start.farg()));
+                            }
+                        }
+                    }
+                }
+                deltagarLista.add(new Deltagare(licensNr, hundNamn, fodelseDatum, agare, kon, sektion, uppfodare, address, mor, far, deltagande));
+            }
+        }
+
+        deltagarLista.sort(
+                Comparator.comparing(Deltagare::sektion, Comparator.nullsFirst(String::compareTo))
+                        .thenComparing(Deltagare::agare, Comparator.nullsFirst(String::compareTo)));
+
+        return deltagarLista;
     }
 
     private static Cell getCell(Sheet sheet, Row row, int columnIndex) {
